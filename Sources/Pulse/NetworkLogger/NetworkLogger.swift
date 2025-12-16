@@ -213,6 +213,7 @@ public final class NetworkLogger: @unchecked Sendable {
 
         let metrics = context.metrics
         let data = context.data
+        let requestBody = context.requestBody
         lock.unlock()
 
         send(.networkTaskCompleted(.init(
@@ -223,12 +224,21 @@ public final class NetworkLogger: @unchecked Sendable {
             currentRequest: task.currentRequest.map(Request.init),
             response: task.response.map(Response.init),
             error: error.map(ResponseError.init),
-            requestBody: originalRequest.httpBody ?? originalRequest.httpBodyStreamData(),
+            requestBody: requestBody,
             responseBody: data,
             metrics: metrics,
             label: configuration.label,
             taskDescription: task.taskDescription
         )))
+    }
+    
+    public func logTask(_ task: URLSessionTask, requestBodyUpdateWith data: Data?) {
+        guard let data = data else {
+            return
+        }
+        lock.lock()
+        context(for: task).requestBody = data
+        lock.unlock()
     }
 
     private func send(_ event: LoggerStore.Event) {
@@ -281,6 +291,7 @@ public final class NetworkLogger: @unchecked Sendable {
         let taskId = UUID()
         lazy var data = Data()
         var metrics: NetworkLogger.Metrics?
+        lazy var requestBody = Data()
     }
 
     private func context(for task: URLSessionTask) -> TaskContext {
